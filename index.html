@@ -1,4 +1,12 @@
 <meta charset="utf-8">
+<meta name="theme-color" content="#171310">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Last Witness">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+
 <title>[SCRIPT TEST] The Last Witness</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -990,15 +998,15 @@ $('again').addEventListener('click',()=>{resetGame();if(A.ctx){A.rainF.frequency
 const root=document.documentElement,wrapE=$('wrap'),stageE=$('stage'),invE=$('inv');
 let MODE='desk',TOUCH=false,PAUSED=false,SELO=null,JOYON=true,lastVerb='',NLOC='',lastMode='room';
 const CAM={w:0,x:0,y:0,user:false};
-const calcMode=()=>{const w=innerWidth,h=innerHeight;if(w>h&&h<=520)return'land';if(w<=h&&w<=700)return'port';return'desk'};
+const calcMode=()=>{const w=innerWidth,h=innerHeight;const touch=matchMedia('(pointer: coarse)').matches;if(touch&&w>h&&h<=700)return'land';if(touch&&w<=h&&w<=1000)return'port';if(w>h&&h<=520)return'land';if(w<=h&&w<=700)return'port';return'desk'};
 function applyCam(){if(MODE==='desk'){cv.style.width='';cv.style.height='';cv.style.left='';cv.style.top='';return}
 const sw=stageE.clientWidth,sh=stageE.clientHeight,W=CAM.w,Hh=W*9/16;
 CAM.x=W<=sw?(sw-W)/2:clamp(CAM.x,sw-W-W*.08,W*.08);CAM.y=Hh<=sh?(sh-Hh)/2:clamp(CAM.y,sh-Hh-Hh*.08,Hh*.08);
 cv.style.width=W+'px';cv.style.height=Hh+'px';cv.style.left=CAM.x+'px';cv.style.top=CAM.y+'px'}
 function fitCam(){if(MODE==='desk'){applyCam();return}const sw=stageE.clientWidth||innerWidth,sh=stageE.clientHeight||innerHeight;CAM.user=false;
 if(G.mode==='sewer'){const rl=RV.ph&&RV.ph!=='still';CAM.w=MODE==='port'?(rl?sw*1.75:Math.max(sw,sh*.6*16/9)):Math.min(sw*1.02,sh*16/9*1.02);CAM.x=sw/2-CAM.w*(rl?(MODE==='port'?.58:.5):.42);CAM.y=(sh-CAM.w*9/16)/2}
-else if(MODE==='land'){CAM.w=Math.min(sw,sh*16/9);CAM.x=(sw-CAM.w)/2;CAM.y=(sh-CAM.w*9/16)/2}
-else{CAM.w=sw*1.55;CAM.x=sw/2-CAM.w*.515;CAM.y=(sh-84-CAM.w*9/16)/2-8}
+else if(MODE==='land'){/* closer landscape composition; drag/pinch still supported */CAM.w=Math.max(sw*1.28,sh*16/9*1.05);CAM.x=(sw-CAM.w)/2;CAM.y=(sh-CAM.w*9/16)/2-10}
+else{/* portrait: close investigation view, not a miniature full-room view */CAM.w=sw*2.08;CAM.x=sw/2-CAM.w*.50;CAM.y=(sh-84-CAM.w*9/16)/2-8}
 applyCam()}
 function layout(){const m=calcMode();if(m!==MODE||!CAM.w){MODE=m;root.dataset.m=m;TOUCH=m!=='desk';setInvHide(m==='land');fitCam()}else applyCam();$('joy').classList.toggle('off',!JOYON)}
 // pointer handling: tap, pan, pinch
@@ -1875,5 +1883,29 @@ document.addEventListener('pointerdown',e=>{
 function init(){loadAssets(()=>{try{buildArt();buildShadows();buildCone();buildDoorTex();buildMara();for(const k in OBJ)OBJ[k].id=k;EX=buildEX();initTV();renderPal();updateEv()}catch(e){console.error(e);$('go').textContent='Error: '+e.message;return}const b=$('go');b.disabled=false;b.textContent='Begin investigation';$('cont').hidden=!readSave();layout();requestAnimationFrame(frame)})}
 try{const tx=mk(160,160),tg=tx.getContext('2d');rnd=mb(5);for(let i=0;i<1400;i++){tg.strokeStyle=`rgba(${rnd()<.5?'255,245,225':'0,0,0'},${.02+rnd()*.05})`;tg.lineWidth=1+rnd()*2;const x=rnd()*160,y=rnd()*160;tg.beginPath();tg.moveTo(x,y);tg.lineTo(x+4+rnd()*14,y+(rnd()-.5)*4);tg.stroke()}dlg.style.backgroundImage=`url(${tx.toDataURL()})`}catch(e){}
 $('go').disabled=true;$('go').textContent='Preparing the room…';setTimeout(init,60);
+})();
+</script>
+
+
+<style>
+#lw-fullscreen{position:absolute;right:14px;bottom:12px;z-index:40;border:1px solid #b58a4b;background:rgba(22,17,14,.9);color:#e8bd6a;font:14px Georgia,serif;padding:9px 13px;border-radius:3px;cursor:pointer}
+#lw-fullscreen:focus-visible{outline:2px solid #e8bd6a}
+#lw-fullscreen[hidden]{display:none}
+</style>
+<script>
+(function(){
+  const button=document.createElement('button');button.id='lw-fullscreen';button.type='button';button.textContent='⛶ Fullscreen';button.title='Toggle fullscreen (Escape to exit)';
+  document.getElementById('stage').appendChild(button);
+  function target(){return document.getElementById('wrap')||document.documentElement;}
+  function enter(){const t=target();if(!document.fullscreenElement && t.requestFullscreen){try{const p=t.requestFullscreen();if(p&&p.catch)p.catch(()=>{});}catch(e){}}}
+  function toggle(){if(document.fullscreenElement){if(document.exitFullscreen)document.exitFullscreen().catch(()=>{});}else enter();}
+  button.addEventListener('click',toggle);
+  function update(){button.textContent=document.fullscreenElement?'⛶ Exit fullscreen':'⛶ Fullscreen';}
+  document.addEventListener('fullscreenchange',update);
+  // Capture phase guarantees the fullscreen request occurs during the actual user click.
+  for(const id of ['go','cont']){const el=document.getElementById(id);if(el)el.addEventListener('click',function(){if(!document.fullscreenElement)enter();},{capture:true});}
+  // Native standalone launch needs no browser fullscreen request.
+  if(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)button.hidden=true;
+  if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
 })();
 </script>
