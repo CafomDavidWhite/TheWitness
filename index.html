@@ -173,6 +173,15 @@ button{font-family:inherit;color:inherit}
 .dlgopen #inv,.dlgopen #ctl,.dlgopen #chev{opacity:0;pointer-events:none}
 [data-m=desk].dlgopen #inv{opacity:1;pointer-events:auto}
 #sub{position:absolute;left:8px;right:8px;top:calc(var(--sat) + 46px);text-align:center;font-style:italic;font-size:12px;color:#d9d2bd;background:rgba(8,8,10,.62);padding:4px 8px;opacity:0;transition:opacity .4s;z-index:3;pointer-events:none}[data-m=desk] #sub{display:none}
+
+/* Mobile virtual pointer: one action button, left stick drives a visible mouse cursor. */
+[data-m=port] #lw-fullscreen,[data-m=land] #lw-fullscreen{display:none!important}
+[data-m=port].pointer-mode #bIns,[data-m=land].pointer-mode #bIns{display:none!important}
+[data-m=port].pointer-mode #bUse,[data-m=land].pointer-mode #bUse{opacity:1;pointer-events:auto;transform:none;border-color:var(--gold);color:var(--gold)}
+[data-m=port].pointer-mode #bUse{bottom:calc(var(--sab) + 116px)}
+[data-m=land].pointer-mode #bUse{bottom:calc(var(--sab) + 32px)}
+.pointer-mode #joy{opacity:.85}
+.pointer-mode #bUse svg{width:54%;height:54%}
 </style>
 <div id="wrap">
 <div id="stage">
@@ -189,7 +198,7 @@ button{font-family:inherit;color:inherit}
   <div id="invx" hidden></div>
   <div id="dlg" hidden><canvas id="por" width="96" height="96"></canvas><div id="dtx"><div id="who"></div><div id="txt"></div></div><div id="nxt">click to continue</div></div>
   <div id="pause" class="ov" hidden><div class="col" id="pmain"><h2>Paused</h2><button class="btn" id="pRes" type="button">Resume</button><button class="btn" id="pSave" type="button">Save game</button><button class="btn" id="pLoad" type="button">Load game</button><p class="sub" id="pInfo"></p><button class="btn" id="pSet" type="button">Settings</button><button class="btn" id="pRestart" type="button">Restart</button><button class="btn" id="pExit" type="button">Exit</button></div>
-   <div class="col" id="pset" hidden><h2>Settings</h2><button class="btn" id="mute" type="button">Sound on (M)</button><button class="btn" id="tglJoy" type="button">Joystick: on</button><button class="btn" id="pBack" type="button">Back</button></div></div>
+   <div class="col" id="pset" hidden><h2>Settings</h2><button class="btn" id="mute" type="button">Sound on (M)</button><button class="btn" id="tglJoy" type="button">Mobile controls: Cursor</button><button class="btn" id="pBack" type="button">Back</button></div></div>
   <div id="title" class="ov"><h1>Find the Key. Leave.</h1><p>Four a.m. Room nine of the Oleum Motor Inn, which is not your room. Five pieces of evidence point at a killer you buried ten years ago. Tap or click the floor to walk, tap objects to Inspect or Use. Sound is synthesized; headphones help.</p><button id="go" class="btn" type="button">Begin investigation</button><button id="cont" class="btn" type="button" hidden>Continue</button></div>
   <div id="end" class="ov"><h1>End of Demo</h1><p id="endp">The tunnel goes on.</p><button id="again" class="btn" type="button">Begin again</button></div>
 </div>
@@ -472,7 +481,7 @@ function goTo(pt,fn,ang){pl.path=findPath([pl.x,pl.y],snap([pt[0],pt[1]]));pl.pe
 function closeMenu(){menu.hidden=true;menu.innerHTML=''}
 function showMenu(o,x,y){menu.innerHTML='';const v=vb(o).slice();if(o.id==='trap'&&G.hasKey&&!G.trapOpen)v.push(['key','Use the Iron Key']);
 for(const[id,label]of v){const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>{closeMenu();if(o.noWalk)run(o.id,id);else goTo(o.ip,()=>run(o.id,id),o.ip[2])};menu.appendChild(b)}
-menu.style.left=clamp(x/VW*100,2,82)+'%';menu.style.top=clamp(y/VH*100,4,52)+'%';menu.hidden=false;sfx.tick()}
+const ux=pointerMode()?(CAM.x+x/VW*CAM.w)/stageE.clientWidth*100:x/VW*100,uy=pointerMode()?(CAM.y+y/VH*(CAM.w*9/16))/stageE.clientHeight*100:y/VH*100;menu.style.left=clamp(ux,2,76)+'%';menu.style.top=clamp(uy,4,66)+'%';menu.hidden=false;sfx.tick()}
 // ---------- story actions ----------
 function run(id,v){if(G.cut||G.descend)return;NLOC=id;
 if(id==='bed'){if(v==='inspect')say([['PERCEPTION','The storage base sits slightly out of line with the frame. It has been opened recently.']]);
@@ -997,6 +1006,12 @@ $('again').addEventListener('click',()=>{resetGame();if(A.ctx){A.rainF.frequency
 // ---------- UI: responsive layout, camera, inventory, notebook, pause, save/load ----------
 const root=document.documentElement,wrapE=$('wrap'),stageE=$('stage'),invE=$('inv');
 let MODE='desk',TOUCH=false,PAUSED=false,SELO=null,JOYON=true,lastVerb='',NLOC='',lastMode='room';
+let MOBILE_CONTROL='cursor';try{MOBILE_CONTROL=localStorage.getItem('lw-mobile-control')==='movement'?'movement':'cursor'}catch(e){}
+const pointerMode=()=>TOUCH&&MOBILE_CONTROL==='cursor'&&G.mode==='room';
+function syncMobileControls(){root.classList.toggle('pointer-mode',pointerMode());$('tglJoy').textContent='Mobile controls: '+(MOBILE_CONTROL==='cursor'?'Cursor (default)':'Character movement');$('bUse').setAttribute('aria-label',pointerMode()?'Action — open context menu':'Use');$('bUse').title=pointerMode()?'Action — open Inspect / Use / Talk menu':'Use';}
+function virtualAction(){if(!pointerMode()||PAUSED)return;if(DL.open){advance();return}if(WP.open||DL.pick||G.cut||G.descend||G.ending)return;if(!menu.hidden){closeMenu();return}const h=hitTest(mx,my);if(h){if(G.sel&&h.id==='trap'){clearSel();goTo(h.ip,()=>run('trap','key'),h.ip[2]);return}showMenu(h,mx,my);return}if(G.sel){G.sel=false;INV.sel=null;renderPal()}const w=inv(mx,my);if(w[0]>=0&&w[0]<=W&&w[1]>=0&&w[1]<=H)goTo(w,null)}
+function initVirtualCursor(){const r=stageE.getBoundingClientRect();const x=r.width*.5,y=r.height*.46;mx=clamp((x-CAM.x)/CAM.w*VW,0,VW);my=clamp((y-CAM.y)/(CAM.w*9/16)*VH,0,VH)}
+
 const CAM={w:0,x:0,y:0,user:false};
 const calcMode=()=>{const w=innerWidth,h=innerHeight;const touch=matchMedia('(pointer: coarse)').matches;if(touch&&w>h&&h<=700)return'land';if(touch&&w<=h&&w<=1000)return'port';if(w>h&&h<=520)return'land';if(w<=h&&w<=700)return'port';return'desk'};
 function applyCam(){if(MODE==='desk'){cv.style.width='';cv.style.height='';cv.style.left='';cv.style.top='';return}
@@ -1031,10 +1046,10 @@ if(G.sel){if(h&&h.id==='trap'){clearSel();goTo(h.ip,()=>run('trap','key'),h.ip[2
 if(h){if(TOUCH){SELO=h;showCtl();sfx.tick()}else showMenu(h,mx,my);if(TOUCH)mx=my=-100;return}
 clearSel();const w=inv(mx,my);if(w[0]>=0&&w[0]<=W&&w[1]>=0&&w[1]<=H)goTo(w,null);if(TOUCH)mx=my=-100}
 function clearSel(){if(SELO){SELO=null;showCtl()}}
-function showCtl(){const o=SELO,v=o?vb(o):[],u=v.find(x=>x[0]!=='inspect');$('bIns').classList.toggle('on',!!o);$('bUse').classList.toggle('on',!!o&&(!!u||(o.id==='trap'&&G.hasKey)));const s=$('selname');s.textContent=o?o.name+(u?'  ·  '+u[1]:''):'';s.classList.toggle('on',!!o)}
+function showCtl(){if(pointerMode()){syncMobileControls();return}const o=SELO,v=o?vb(o):[],u=v.find(x=>x[0]!=='inspect');$('bIns').classList.toggle('on',!!o);$('bUse').classList.toggle('on',!!o&&(!!u||(o.id==='trap'&&G.hasKey)));const s=$('selname');s.textContent=o?o.name+(u?'  ·  '+u[1]:''):'';s.classList.toggle('on',!!o)}
 function doVerb(kind){const o=SELO;if(!o||G.cut||G.descend||DL.open)return;const v=vb(o);let id=kind==='inspect'?'inspect':(v.find(x=>x[0]!=='inspect')||[])[0];
 if(kind==='use'&&o.id==='trap'&&G.hasKey&&!G.trapOpen)id='key';if(!id)return;lastVerb=kind;clearSel();if(o.noWalk)run(o.id,id);else goTo(o.ip,()=>run(o.id,id),o.ip[2])}
-$('bIns').addEventListener('click',()=>doVerb('inspect'));$('bUse').addEventListener('click',()=>doVerb('use'));
+$('bIns').addEventListener('click',()=>doVerb('inspect'));$('bUse').addEventListener('click',()=>pointerMode()?virtualAction():doVerb('use'));
 // golden outline for hover / selection
 let hlC=null;const HLS={bed:()=>G.tray>=.99?'bedopen':'bed',tv:'tv',chest:'chest',table:()=>G.ev.match?'table_nm':'table',rug:'rug',trap:()=>G.trapAng>.5?'hatcho':'hatchc'};
 function drawHighlight_old(g,t){const o=SELO||(!TOUCH&&hover&&G.started&&G.mode==='room'&&!DL.open&&!G.cut&&!PAUSED?hover:null);if(!o)return;const a=.6+.3*Math.sin(t*3.2);let k=HLS[o.id];if(typeof k==='function')k=k();
@@ -1048,13 +1063,22 @@ g.restore()}
 // joystick
 const JOY={on:false,x:0,y:0,t:0};
 {const j=$('joy'),kn=$('knob');let pid=null;const mv=e=>{const r=j.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let dx=e.clientX-cx,dy=e.clientY-cy;const R=r.width/2-8,L=Math.hypot(dx,dy);if(L>R){dx*=R/L;dy*=R/L}kn.style.transform=`translate(${dx}px,${dy}px)`;JOY.x=dx/R;JOY.y=dy/R;JOY.on=Math.hypot(JOY.x,JOY.y)>.22};
-j.addEventListener('pointerdown',e=>{e.preventDefault();pid=e.pointerId;try{j.setPointerCapture(pid)}catch(_){}j.classList.add('act');clearSel();mv(e)});
+j.addEventListener('pointerdown',e=>{e.preventDefault();pid=e.pointerId;try{j.setPointerCapture(pid)}catch(_){}j.classList.add('act');if(!pointerMode())clearSel();mv(e)});
 j.addEventListener('pointermove',e=>{if(e.pointerId===pid)mv(e)});
-const up=e=>{if(e.pointerId!==pid)return;pid=null;j.classList.remove('act');kn.style.transform='';JOY.on=false;JOY.x=JOY.y=0;KEYS.a=KEYS.d=false;if(G.mode==='room'){pl.path=[]}};j.addEventListener('pointerup',up);j.addEventListener('pointercancel',up)}
+const up=e=>{if(e.pointerId!==pid)return;pid=null;j.classList.remove('act');kn.style.transform='';JOY.on=false;JOY.x=JOY.y=0;KEYS.a=KEYS.d=false;if(G.mode==='room'&&!pointerMode()){pl.path=[]}};j.addEventListener('pointerup',up);j.addEventListener('pointercancel',up)}
 function joyTick(dt){root.classList.toggle('dlgopen',!!DL.open);$('bIns').classList.toggle('act',!!DL.open&&lastVerb==='inspect');$('bUse').classList.toggle('act',!!DL.open&&lastVerb==='use');
 if(G.mode!==lastMode){lastMode=G.mode;fitCam()}
 if(MODE==='land'&&!root.classList.contains('invhide')&&!INV.sel&&$('invx').hidden){invT+=dt;if(invT>5)setInvHide(true)}
-if(!JOY.on)return;if(G.mode==='sewer'){KEYS.a=JOY.x<-.3;KEYS.d=JOY.x>.3;return}
+syncMobileControls();if(!JOY.on)return;
+if(pointerMode()&&!DL.open&&!WP.open&&!DL.pick&&!G.cut&&!G.descend&&!PAUSED){
+ const speed=490;mx=clamp(mx+JOY.x*speed*dt,0,VW);my=clamp(my+JOY.y*speed*dt,0,VH);
+ const sw=stageE.clientWidth,sh=stageE.clientHeight,px=CAM.x+mx/VW*CAM.w,py=CAM.y+my/VH*(CAM.w*9/16);
+ const edge=MODE==='port'?Math.min(65,sw*.18):Math.min(80,sw*.12);
+ if(px<edge)CAM.x+=Math.min(edge-px,380*dt);else if(px>sw-edge)CAM.x-=Math.min(px-(sw-edge),380*dt);
+ if(py<edge+45)CAM.y+=Math.min(edge+45-py,300*dt);else if(py>sh-edge-85)CAM.y-=Math.min(py-(sh-edge-85),300*dt);
+ CAM.user=true;applyCam();return;
+}
+if(G.mode==='sewer'){KEYS.a=JOY.x<-.3;KEYS.d=JOY.x>.3;return}
 if(G.mode!=='room'||DL.open||G.cut||G.descend)return;JOY.t-=dt;if(JOY.t>0)return;JOY.t=.1;
 const dx=JOY.x,dy=JOY.y,det=EXX*EYY-EYX*EXY,wx=(dx*EYY-dy*EYX)/det,wy=(EXX*dy-EXY*dx)/det,L=Math.hypot(wx,wy)||1,k=Math.min(1,Math.hypot(dx,dy))*70;
 pl.path=findPath([pl.x,pl.y],snap([pl.x+wx/L*k,pl.y+wy/L*k]));pl.pend=null}
@@ -1129,7 +1153,7 @@ function closePause(){PAUSED=false;$('pause').hidden=true}
 $('btnMenu').addEventListener('click',()=>openPause());$('btnSet').addEventListener('click',()=>openPause(1));$('btnSet2').addEventListener('click',()=>openPause(1));
 $('pRes').addEventListener('click',closePause);$('pSave').addEventListener('click',()=>{if(saveGame())$('pInfo').textContent=saveInfo()});$('pLoad').addEventListener('click',loadGame);
 $('pSet').addEventListener('click',()=>{$('pmain').hidden=true;$('pset').hidden=false});$('pBack').addEventListener('click',()=>{$('pmain').hidden=false;$('pset').hidden=true});
-$('tglJoy').addEventListener('click',()=>{JOYON=!JOYON;$('tglJoy').textContent='Joystick: '+(JOYON?'on':'off');layout()});
+$('tglJoy').addEventListener('click',()=>{MOBILE_CONTROL=MOBILE_CONTROL==='cursor'?'movement':'cursor';try{localStorage.setItem('lw-mobile-control',MOBILE_CONTROL)}catch(e){}JOYON=true;clearSel();closeMenu();if(MOBILE_CONTROL==='cursor')initVirtualCursor();syncMobileControls();layout()});
 $('pRestart').addEventListener('click',()=>{closePause();resetGame();G.mode='room';G.started=true;G.fadeTo=0;fitCam();setTimeout(opening,800)});
 $('pExit').addEventListener('click',()=>{closePause();resetGame();G.started=false;G.mode='room';$('title').style.display='';$('cont').hidden=!readSave()});
 $('cont').addEventListener('click',()=>{audioInit();loadGame()});
@@ -1706,7 +1730,7 @@ function openPanel(kind){
 // ---------------- car-arrival cinematic: Ashcroft Apartments ----------------
 const CW=1280,CH_=720;
 function startNew(){
-  busy=true;sfx('thunk');fadeMusic(2.6);hideTitle();setTimeout(()=>playCine(),1000);
+  busy=true;sfx('thunk');fadeMusic(2.6);playCine();hideTitle();
 }
 function launch(){
   fadeAll(2,3);const go=()=>{const b=$('go');if(b.disabled){setTimeout(go,150);return}G.fade=1;b.click();const cn=document.getElementById('cine');if(cn){cn.style.opacity=0;setTimeout(()=>cn.remove(),1000)}};go()
