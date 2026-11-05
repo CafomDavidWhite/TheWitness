@@ -1,3 +1,61 @@
+<!--
+====================================================================
+THE LAST WITNESS — SHARED AI DEVELOPMENT HANDOVER
+====================================================================
+PROJECT: The Last Witness | Gallows Reach | noir detective game
+WORKING STORY ERA: 1947 (approved direction; legacy text still conflicts)
+CURRENT FOCUS: Ashcroft Apartments opening investigation only
+HANDOVER VERSION: 0.1.1-mobile-menu-fix
+HANDOVER UPDATED: 2026-11-05
+SOURCE BASE: The_Last_Witness_Intro_No_Room_Flash.html
+ORIGINAL USER UPLOAD: oleum_title_test_script.html
+
+IMPLEMENTED SINCE ORIGINAL UPLOAD:
+1. Lean dialogue pass: shortened/removed redundant narrator, internal
+   voice and system panels for visible/audible room actions; preserved
+   existing interaction progression (see CHANGELOG.md for exact scope).
+2. PWA/fullscreen: metadata, desktop fullscreen control, start-button
+   fullscreen request, service-worker registration. Requires external
+   manifest.webmanifest, sw.js and icons for full PWA functionality.
+3. Mobile camera: closer portrait and landscape camera framing and
+   improved touch-device mode detection; no change to room geometry.
+4. Mobile controls: default virtual cursor moved by left joystick;
+   one action button uses desktop-style context menu; settings toggle
+   returns to character-movement controls; preference stored locally.
+5. Mobile fullscreen button hidden in mobile layouts.
+6. New Game transition: playCine() starts before hideTitle(), to
+   avoid exposing the investigation room ahead of the cinematic.
+7. Mobile menu fix: virtual cursor now renders above the game canvas;
+   joystick navigates menu choices and Action activates the selection.
+
+NOT INCLUDED / NOT CONFIRMED IMPLEMENTED:
+- Separate 93-entry Ashcroft narrative rewrite / Maya wheel script:
+  authored as independent review files, NOT bulk-imported here.
+- Full consistency pass for 1947, Ashcroft vs Oleum, and time/date:
+  legacy text still exists. Do not silently rewrite story or assets.
+- Live-browser/device regression test: NOT performed in this handover.
+
+NON-NEGOTIABLE EDITING RULES FOR CLAUDE AND CHATGPT:
+- Treat the latest committed GitHub index.html as source of truth.
+- Before editing, read this header and CHANGELOG.md, and compare the
+  received file with the most recent version; do not overwrite newer work.
+- Preserve flags, event callbacks, inventory/evidence IDs, conversation
+  wheel IDs/gates, notebook updates, geometry and camera hit mapping.
+- Change only requested systems; never replace unrelated game sections.
+- Add a concise entry to CHANGELOG.md and update this header's summary
+  after every change. Identify changed functions and known limitations.
+- State explicitly whether changes were syntax-checked, browser-tested,
+  and tested on real mobile devices; never equate these test levels.
+- Back up/commit a working version before every major change.
+- Do not paste entire historical changelog into this HTML header.
+
+PWA DEPENDENCIES: ./manifest.webmanifest, ./sw.js, ./icon-192.png,
+./icon-512.png. Upload all alongside index.html for full install support.
+NEXT: verify New Game intro, Maya entrance, cursor hotspots, context
+menu, evidence flags, hatch/phone progression on desktop and mobile.
+FULL HISTORY: CHANGELOG.md | WORKING RULES: PROJECT_NOTES.md
+====================================================================
+-->
 <meta charset="utf-8">
 <meta name="theme-color" content="#171310">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -175,6 +233,12 @@ button{font-family:inherit;color:inherit}
 #sub{position:absolute;left:8px;right:8px;top:calc(var(--sat) + 46px);text-align:center;font-style:italic;font-size:12px;color:#d9d2bd;background:rgba(8,8,10,.62);padding:4px 8px;opacity:0;transition:opacity .4s;z-index:3;pointer-events:none}[data-m=desk] #sub{display:none}
 
 /* Mobile virtual pointer: one action button, left stick drives a visible mouse cursor. */
+#mobilePointer{position:absolute;z-index:8;left:0;top:0;width:24px;height:28px;pointer-events:none;display:none;filter:drop-shadow(0 1px 2px #000);transform:translate(-2px,-2px)}
+#mobilePointer svg{width:100%;height:100%;fill:#f4e3bb;stroke:#1a1010;stroke-width:1.5;stroke-linejoin:round}
+.pointer-mode #mobilePointer{display:block}
+.pointer-mode #menu{z-index:7;min-width:150px;max-width:72%;gap:6px}
+.pointer-mode #menu button{min-height:44px;font-size:16px;padding:9px 14px;touch-action:manipulation}
+.pointer-mode #menu button.mobile-choice{border-color:#e8c47b;background:linear-gradient(#56412c,#32241a);color:#fff3cf;box-shadow:0 0 0 2px rgba(232,196,123,.25)}
 [data-m=port] #lw-fullscreen,[data-m=land] #lw-fullscreen{display:none!important}
 [data-m=port].pointer-mode #bIns,[data-m=land].pointer-mode #bIns{display:none!important}
 [data-m=port].pointer-mode #bUse,[data-m=land].pointer-mode #bUse{opacity:1;pointer-events:auto;transform:none;border-color:var(--gold);color:var(--gold)}
@@ -191,7 +255,7 @@ button{font-family:inherit;color:inherit}
   <button id="btnSet" class="rb" type="button" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.4M12 18.6V21M3 12h2.4M18.6 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M5.6 18.4l1.7-1.7M16.7 7.3l1.7-1.7"/></svg></button>
   <div id="obj">Investigate the room.</div><div id="selname"></div><div id="toast"></div>
   <div id="jr" hidden></div><div id="barT" class="bar"></div><div id="barB" class="bar"></div><button id="ans" class="btn" type="button" hidden>Answer the phone</button>
-  <div id="menu" hidden></div>
+  <div id="menu" hidden></div><div id="mobilePointer" aria-hidden="true"><svg viewBox="0 0 24 28"><path d="M3 2 L3 23 L8.6 17.6 L12.7 26 L17.1 23.8 L13 15.7 L21 15 Z"/></svg></div>
   <div id="ctl"><div id="joy"><div id="knob"></div></div>
    <button id="bIns" class="cb" type="button" aria-label="Inspect"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l6 6"/></svg></button>
    <button id="bUse" class="cb" type="button" aria-label="Use"><svg viewBox="0 0 24 24"><path d="M8 13V5.5a1.4 1.4 0 0 1 2.8 0V11M10.8 10V4a1.4 1.4 0 0 1 2.8 0v6M13.6 10V5.2a1.4 1.4 0 0 1 2.8 0V11M16.4 9.5a1.4 1.4 0 0 1 2.8 0V15c0 4-2.6 6-6 6-3 0-4.4-1.3-6-4l-2.3-3.8a1.3 1.3 0 0 1 2.2-1.4L8 13"/></svg></button></div>
@@ -478,10 +542,10 @@ const evN=()=>Object.values(G.ev).filter(Boolean).length;
 function logEv(k){if(G.ev[k])return[];G.ev[k]=true;updateEv();sfx.evid();setTimeout(()=>saveGame(true),50);if(evN()===5&&!G.hasKey)setObj('Evidence complete. Find what opens the hatch.');else if(evN()===5)setObj('Evidence complete. Open the hatch.');if(evN()===1)G.partnerPending=true;return[['SYSTEM',`<b>[EVIDENCE LOGGED ${evN()}/5: ${EVD[k][0]}]</b>`],...(M.following&&REACT[k]?[['MAYA',REACT[k]]]:[])]}
 // ---------- input helpers ----------
 function goTo(pt,fn,ang){pl.path=findPath([pl.x,pl.y],snap([pt[0],pt[1]]));pl.pend=fn?{ang:ang,fn,armed:false}:null}
-function closeMenu(){menu.hidden=true;menu.innerHTML=''}
+function closeMenu(){menu.hidden=true;menu.innerHTML='';mobileMenuIndex=0;mobileMenuLatch=false}
 function showMenu(o,x,y){menu.innerHTML='';const v=vb(o).slice();if(o.id==='trap'&&G.hasKey&&!G.trapOpen)v.push(['key','Use the Iron Key']);
 for(const[id,label]of v){const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>{closeMenu();if(o.noWalk)run(o.id,id);else goTo(o.ip,()=>run(o.id,id),o.ip[2])};menu.appendChild(b)}
-const ux=pointerMode()?(CAM.x+x/VW*CAM.w)/stageE.clientWidth*100:x/VW*100,uy=pointerMode()?(CAM.y+y/VH*(CAM.w*9/16))/stageE.clientHeight*100:y/VH*100;menu.style.left=clamp(ux,2,76)+'%';menu.style.top=clamp(uy,4,66)+'%';menu.hidden=false;sfx.tick()}
+const ux=pointerMode()?(CAM.x+x/VW*CAM.w)/stageE.clientWidth*100:x/VW*100,uy=pointerMode()?(CAM.y+y/VH*(CAM.w*9/16))/stageE.clientHeight*100:y/VH*100;menu.style.left=clamp(ux,2,76)+'%';menu.style.top=clamp(uy,4,66)+'%';menu.hidden=false;if(pointerMode()){mobileMenuIndex=0;mobileMenuLatch=false;highlightMobileChoice()}sfx.tick()}
 // ---------- story actions ----------
 function run(id,v){if(G.cut||G.descend)return;NLOC=id;
 if(id==='bed'){if(v==='inspect')say([['PERCEPTION','The storage base sits slightly out of line with the frame. It has been opened recently.']]);
@@ -991,7 +1055,7 @@ if(G.fade>.003){g.fillStyle=`rgba(0,0,0,${G.fade})`;g.fillRect(0,0,VW,VH)}
 drawHud(g)}
 function drawHud(g){if(mx>0&&!DL.open||mx>0&&my<VH*.64){hover=G.started&&!DL.open&&G.mode==='room'&&!G.cut?hitTest(mx,my):null;const kind=hover?(vb(hover).length>1||hover.id==='trap'?'hand':'eye'):'dot';
 if(hover&&!G.ending){g.font='italic 600 20px Spectral,Georgia,serif';g.textAlign='left';const tx=Math.min(mx+20,VW-g.measureText(hover.name).width-20),ty=my+30;g.lineWidth=5;g.strokeStyle='rgba(8,6,8,.9)';g.strokeText(hover.name,tx,ty);g.fillStyle='#f1e4c0';g.fillText(hover.name,tx,ty)}
-drawCursor(g,mx,my,kind)}}
+if(!pointerMode())drawCursor(g,mx,my,kind)}}
 function frame(ms){const t=ms/1000,dt=Math.min(.05,Math.max(0,t-last));last=t;if(PAUSED){atTick(0);requestAnimationFrame(frame);return}atTick(dt);joyTick(dt);if(G.mode!=='sewer')tickDL(dt);if(G.mode==='sewer'){updSewer(dt,t);renderSewer(g0,t,dt)}else if(G.mode==='grave'){updGrave(dt,t);renderGrave(g0,t,dt)}else{const m=update(dt,t);if(G.mode==='room')render(t,dt,m)}requestAnimationFrame(frame)}
 function opening(){setObj('Investigate the room.');say([['ALEXEI','<i>"Disturbance call. No answer at the door. Let’s see what happened."</i>']])}
 function cpos(e){const r=cv.getBoundingClientRect();return[(e.clientX-r.left)/r.width*VW,(e.clientY-r.top)/r.height*VH]}
@@ -1009,7 +1073,14 @@ let MODE='desk',TOUCH=false,PAUSED=false,SELO=null,JOYON=true,lastVerb='',NLOC='
 let MOBILE_CONTROL='cursor';try{MOBILE_CONTROL=localStorage.getItem('lw-mobile-control')==='movement'?'movement':'cursor'}catch(e){}
 const pointerMode=()=>TOUCH&&MOBILE_CONTROL==='cursor'&&G.mode==='room';
 function syncMobileControls(){root.classList.toggle('pointer-mode',pointerMode());$('tglJoy').textContent='Mobile controls: '+(MOBILE_CONTROL==='cursor'?'Cursor (default)':'Character movement');$('bUse').setAttribute('aria-label',pointerMode()?'Action — open context menu':'Use');$('bUse').title=pointerMode()?'Action — open Inspect / Use / Talk menu':'Use';}
-function virtualAction(){if(!pointerMode()||PAUSED)return;if(DL.open){advance();return}if(WP.open||DL.pick||G.cut||G.descend||G.ending)return;if(!menu.hidden){closeMenu();return}const h=hitTest(mx,my);if(h){if(G.sel&&h.id==='trap'){clearSel();goTo(h.ip,()=>run('trap','key'),h.ip[2]);return}showMenu(h,mx,my);return}if(G.sel){G.sel=false;INV.sel=null;renderPal()}const w=inv(mx,my);if(w[0]>=0&&w[0]<=W&&w[1]>=0&&w[1]<=H)goTo(w,null)}
+let mobileMenuIndex=0,mobileMenuLatch=false;
+function highlightMobileChoice(){if(menu.hidden)return;const buttons=[...menu.querySelectorAll('button')];if(!buttons.length)return;mobileMenuIndex=clamp(mobileMenuIndex,0,buttons.length-1);buttons.forEach((b,i)=>b.classList.toggle('mobile-choice',i===mobileMenuIndex));}
+function syncMobilePointer(){const el=$('mobilePointer');if(!el||!pointerMode()||!G.started||PAUSED||G.mode!=='room'||G.cut||G.ending||DL.open||WP.open||!$('title').hidden&&$('title').style.display!=='none'){if(el)el.style.display='none';return}
+ el.style.display='block';let px,py;
+ if(!menu.hidden){const b=menu.querySelectorAll('button')[mobileMenuIndex];if(b){const sr=stageE.getBoundingClientRect(),r=b.getBoundingClientRect();px=r.left-sr.left+10;py=r.top-sr.top+r.height/2}}
+ if(px===undefined){px=CAM.x+mx/VW*CAM.w;py=CAM.y+my/VH*(CAM.w*9/16)}
+ el.style.left=px+'px';el.style.top=py+'px';}
+function virtualAction(){if(!pointerMode()||PAUSED)return;if(DL.open){advance();return}if(WP.open||DL.pick||G.cut||G.descend||G.ending)return;if(!menu.hidden){const choice=menu.querySelectorAll('button')[mobileMenuIndex];if(choice)choice.click();else closeMenu();return}const h=hitTest(mx,my);if(h){if(G.sel&&h.id==='trap'){clearSel();goTo(h.ip,()=>run('trap','key'),h.ip[2]);return}showMenu(h,mx,my);return}if(G.sel){G.sel=false;INV.sel=null;renderPal()}const w=inv(mx,my);if(w[0]>=0&&w[0]<=W&&w[1]>=0&&w[1]<=H)goTo(w,null)}
 function initVirtualCursor(){const r=stageE.getBoundingClientRect();const x=r.width*.5,y=r.height*.46;mx=clamp((x-CAM.x)/CAM.w*VW,0,VW);my=clamp((y-CAM.y)/(CAM.w*9/16)*VH,0,VH)}
 
 const CAM={w:0,x:0,y:0,user:false};
@@ -1069,14 +1140,19 @@ const up=e=>{if(e.pointerId!==pid)return;pid=null;j.classList.remove('act');kn.s
 function joyTick(dt){root.classList.toggle('dlgopen',!!DL.open);$('bIns').classList.toggle('act',!!DL.open&&lastVerb==='inspect');$('bUse').classList.toggle('act',!!DL.open&&lastVerb==='use');
 if(G.mode!==lastMode){lastMode=G.mode;fitCam()}
 if(MODE==='land'&&!root.classList.contains('invhide')&&!INV.sel&&$('invx').hidden){invT+=dt;if(invT>5)setInvHide(true)}
-syncMobileControls();if(!JOY.on)return;
+syncMobileControls();syncMobilePointer();if(!JOY.on){mobileMenuLatch=false;return;}
+if(pointerMode()&&!menu.hidden){
+ if(Math.abs(JOY.y)<.35)mobileMenuLatch=false;
+ else if(!mobileMenuLatch){const n=menu.querySelectorAll('button').length;if(n){mobileMenuIndex=clamp(mobileMenuIndex+(JOY.y>0?1:-1),0,n-1);highlightMobileChoice()}mobileMenuLatch=true}
+ syncMobilePointer();return;
+}
 if(pointerMode()&&!DL.open&&!WP.open&&!DL.pick&&!G.cut&&!G.descend&&!PAUSED){
  const speed=490;mx=clamp(mx+JOY.x*speed*dt,0,VW);my=clamp(my+JOY.y*speed*dt,0,VH);
  const sw=stageE.clientWidth,sh=stageE.clientHeight,px=CAM.x+mx/VW*CAM.w,py=CAM.y+my/VH*(CAM.w*9/16);
  const edge=MODE==='port'?Math.min(65,sw*.18):Math.min(80,sw*.12);
  if(px<edge)CAM.x+=Math.min(edge-px,380*dt);else if(px>sw-edge)CAM.x-=Math.min(px-(sw-edge),380*dt);
  if(py<edge+45)CAM.y+=Math.min(edge+45-py,300*dt);else if(py>sh-edge-85)CAM.y-=Math.min(py-(sh-edge-85),300*dt);
- CAM.user=true;applyCam();return;
+ CAM.user=true;applyCam();syncMobilePointer();return;
 }
 if(G.mode==='sewer'){KEYS.a=JOY.x<-.3;KEYS.d=JOY.x>.3;return}
 if(G.mode!=='room'||DL.open||G.cut||G.descend)return;JOY.t-=dt;if(JOY.t>0)return;JOY.t=.1;
